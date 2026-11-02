@@ -1,4 +1,4 @@
-"""在真实浏览器会话中处理 eHall 安全层并调用新生打卡接口。"""
+"""在真实浏览器会话中处理 eHall 安全层并调用学工系统打卡接口。"""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ class CheckinResult:
 
 
 class FreshmanCheckinClient:
-    """新生打卡客户端。
+    """学工系统客户端。
 
     requests.Session 负责 IDM 登录；Playwright 负责执行 eHall 的 412 安全
     挑战和为 XHR 自动附加 ZUY2FAwZ。
@@ -250,7 +250,7 @@ class FreshmanCheckinClient:
         if "swmcqdkappswu" not in self.entry_url:
             self._wait_for_page("swmxggzptapp", "门户认证落地页")
             self.page.goto(APP_URL, wait_until="domcontentloaded", timeout=self.timeout_ms)
-        self._wait_for_page("swmcqdkappswu", "新生打卡应用")
+        self._wait_for_page("swmcqdkappswu", "学工打卡应用")
 
     def _start_external_chrome(self) -> None:
         assert self._playwright is not None
@@ -398,7 +398,7 @@ class FreshmanCheckinClient:
         roles_response = self._api_post(GET_ROLES_PATH, {"APPID": APP_ID})
         roles = roles_response.get("data") or []
         if not roles:
-            raise RuntimeError("新生应用未返回可用用户角色")
+            raise RuntimeError("学工应用未返回可用用户角色")
         role = roles[0]
         role_id = role.get("ROLEID")
         if not role_id:
