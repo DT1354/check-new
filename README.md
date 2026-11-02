@@ -74,7 +74,8 @@ python -m freshman_checkin
 
 推荐 Ubuntu 与 Cloudflare Tunnel。安装脚本会通过 Playwright 下载与服务器架构
 匹配的 Chrome for Testing，无需 Snap；12 GB 内存足够，Worker 默认始终只执行
-一个 Chrome 任务。
+一个 Chrome 任务。在 Ubuntu 24.04 上，安装脚本还会为该浏览器加载定向
+AppArmor `userns` 规则，保留 Chromium 沙箱而不修改系统全局安全设置。
 
 1. 把仓库放到服务器后执行 `sudo bash deploy/install-server.sh`。
 2. 编辑 `/etc/check-new/check-new.env`，至少修改前端域名；浏览器路径已固定为

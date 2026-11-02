@@ -34,6 +34,7 @@ python3 -m venv "${APP_ROOT}/venv"
 # Playwright supports Ubuntu ARM64 and downloads a matching Chrome for Testing.
 # Keep it in a fixed shared path so the systemd worker does not depend on Snap.
 install -d -o "${SERVICE_USER}" -g "${SERVICE_USER}" -m 0750 "${APP_ROOT}/browsers"
+chown -R "${SERVICE_USER}:${SERVICE_USER}" "${APP_ROOT}/browsers"
 PLAYWRIGHT_BROWSERS_PATH="${APP_ROOT}/browsers" \
   "${APP_ROOT}/venv/bin/python" -m playwright install-deps chromium
 sudo -u "${SERVICE_USER}" env PLAYWRIGHT_BROWSERS_PATH="${APP_ROOT}/browsers" \
@@ -44,6 +45,19 @@ if [[ -z "${CHROME_EXECUTABLE}" ]]; then
   exit 1
 fi
 ln -sfn "${CHROME_EXECUTABLE}" "${APP_ROOT}/chrome"
+chown -R root:"${SERVICE_USER}" "${APP_ROOT}/browsers"
+chmod -R u=rwX,g=rX,o= "${APP_ROOT}/browsers"
+
+# Ubuntu 24.04 restricts user namespaces for downloaded Chrome builds. Allow
+# only the managed browser path instead of weakening the host globally or
+# disabling Chromium's sandbox with --no-sandbox.
+if command -v apparmor_parser >/dev/null 2>&1 \
+  && [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+  install -o root -g root -m 0644 \
+    "${APP_ROOT}/app/deploy/apparmor/check-new-chrome" \
+    /etc/apparmor.d/check-new-chrome
+  apparmor_parser -r /etc/apparmor.d/check-new-chrome
+fi
 
 if [[ ! -f /etc/check-new/check-new.env ]]; then
   install -o root -g "${SERVICE_USER}" -m 0640 \

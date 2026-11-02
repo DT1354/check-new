@@ -1,0 +1,11 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# Ubuntu 24.04 restricts unprivileged user namespaces unless the executable is
+# explicitly allowlisted. The matched browser tree is root-owned after install,
+# and Chrome still keeps its own user-namespace sandbox.
+profile check-new-chrome /opt/check-new/browsers/**/chrome flags=(unconfined) {
+  userns,
+
+  include if exists <local/check-new-chrome>
+}
