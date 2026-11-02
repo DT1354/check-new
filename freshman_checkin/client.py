@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
+import http.client
 import os
 import socket
 import subprocess
 import tempfile
 import time
 import urllib.parse
-import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
@@ -162,7 +162,8 @@ class FreshmanCheckinClient:
                     record_har_mode="full",
                 )
             self._context = self._browser.new_context(**context_kwargs)
-        assert self._context is not None
+        if self._context is None:
+            raise RuntimeError("浏览器上下文初始化失败")
         if not self.native_fingerprint:
             self._context.add_init_script(
                 """
@@ -253,7 +254,8 @@ class FreshmanCheckinClient:
         self._wait_for_page("swmcqdkappswu", "学工打卡应用")
 
     def _start_external_chrome(self) -> None:
-        assert self._playwright is not None
+        if self._playwright is None:
+            raise RuntimeError("Playwright 尚未启动")
         executable = self._find_chrome_executable()
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
@@ -291,9 +293,14 @@ class FreshmanCheckinClient:
             if self._external_process.poll() is not None:
                 raise RuntimeError("外部 Chrome 在 CDP 连接前退出")
             try:
-                with urllib.request.urlopen(endpoint + "/json/version", timeout=1):
+                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
+                connection.request("GET", "/json/version")
+                response = connection.getresponse()
+                response.read()
+                connection.close()
+                if response.status == 200:
                     break
-            except OSError:
+            except (OSError, http.client.HTTPException):
                 time.sleep(0.2)
         else:
             raise RuntimeError("等待外部 Chrome CDP 端口超时")
@@ -342,7 +349,8 @@ class FreshmanCheckinClient:
         self._external_profile = None
 
     def _wait_for_page(self, url_marker: str, label: str) -> None:
-        assert self.page is not None
+        if self.page is None:
+            raise RuntimeError("浏览器页面尚未打开")
         deadline = time.monotonic() + self.timeout_ms / 1000
         while time.monotonic() < deadline:
             if (

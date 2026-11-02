@@ -1,0 +1,17 @@
+[Unit]
+Description=Queue the daily SWU check-in batch
+
+[Service]
+Type=oneshot
+User=check-new
+Group=check-new
+WorkingDirectory=/opt/check-new/app
+EnvironmentFile=/etc/check-new/check-new.env
+LoadCredential=app_master_key:/etc/check-new/app_master_key
+ExecStart=/opt/check-new/venv/bin/python -m server.scheduler
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/check-new

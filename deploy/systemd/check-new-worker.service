@@ -1,0 +1,25 @@
+[Unit]
+Description=SWU check-in serial worker
+After=network-online.target check-new-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=check-new
+Group=check-new
+WorkingDirectory=/opt/check-new/app
+EnvironmentFile=/etc/check-new/check-new.env
+Environment=HOME=/var/lib/check-new
+LoadCredential=app_master_key:/etc/check-new/app_master_key
+ExecStart=/usr/bin/xvfb-run -a -s "-screen 0 1280x1024x24" /opt/check-new/venv/bin/python -m server.worker
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/check-new
+
+[Install]
+WantedBy=multi-user.target

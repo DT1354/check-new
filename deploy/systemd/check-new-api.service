@@ -1,0 +1,24 @@
+[Unit]
+Description=SWU check-in control panel API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=check-new
+Group=check-new
+WorkingDirectory=/opt/check-new/app
+EnvironmentFile=/etc/check-new/check-new.env
+LoadCredential=app_master_key:/etc/check-new/app_master_key
+ExecStart=/opt/check-new/venv/bin/uvicorn server.asgi:app --host 127.0.0.1 --port 8765 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/check-new
+
+[Install]
+WantedBy=multi-user.target

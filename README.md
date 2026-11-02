@@ -1,65 +1,139 @@
-# swu学工系统自动打卡
+# SWU 新生自动打卡
 
-使用办事大厅账号、密码和验证码登录 IDM，经 UAAAP/CAS 建立 eHall 会话，
-再查询或提交打卡。认证、浏览器安全验证、状态查询和提交逻辑都包含在
-本仓库中，不依赖钉钉登录状态。
+一个完整的多账号打卡控制台：使用办事大厅账号、密码和验证码登录 IDM，经
+UAAAP/CAS 建立 eHall 会话，再查询或提交新生打卡。项目不依赖钉钉登录状态，
+包含独立的管理前端、API、任务队列、定时执行与飞书汇总。
 
-> 仅用于本人账号的正常打卡。请遵守学校规定，并自行确认自动化运行是否符合
-> 当前管理要求。
+> 仅用于账号本人知情并授权的正常打卡。请遵守学校规定，并自行确认自动化运行
+> 是否符合当前管理要求。
 
-## 工作流程
+## 功能
 
-1. 使用账号、密码和 OCR 验证码登录 IDM。
-2. 在完整 Chrome 图形引擎中完成 UAAAP/CAS 与 eHall 安全验证。
-3. 初始化新生应用的学生角色并调用 `getKqInfo.do` 查询当天状态。
-4. 已打卡时直接退出；未打卡时按后端 `IN_TIME` 标记决定是否提交。
-5. 调用 `addKqInfo.do` 后再次查询，确认 `HAS_QD=1` 才报告成功。
+- 每天 21:05（Asia/Shanghai）为全部启用账号串行执行。
+- 自动失败后等待 10 秒，以全新的浏览器会话重试一次；不做长时间循环重试。
+- 管理员可直接添加/修改账号密码，也可发送一次性邀请链接让对方填写。
+- 管理员可手动执行单个账号、全部账号或重试失败账号。
+- 邀请链接默认 24 小时有效，被邀请人无需注册。
+- 飞书机器人接收每日成功/失败汇总。
+- 前端不高频轮询，只在操作后延迟刷新一次、窗口重新获得焦点或手动刷新时更新。
 
-代码使用后端下发的打卡地点配置构造请求，不读取设备 GPS。它不会打印账号、
-密码、CAS ticket、Cookie、学号或精确坐标。
+## 架构
 
-## 本地运行
+```text
+Cloudflare Pages (checkin.example.com)
+              │ HTTPS + Secure HttpOnly Cookie
+              ▼
+Cloudflare Tunnel (api-checkin.example.com)
+              │ 127.0.0.1:8765
+              ▼
+FastAPI ── SQLite (WAL)
+              │
+              ▼
+串行 Worker ── Chrome / Xvfb ── SWU eHall
+```
 
-需要 Python 3.11+ 和 Google Chrome。（浏览器）
+学校账号、密码、飞书 Webhook 与签名密钥使用 AES-256-GCM 加密；主密钥只保留
+在服务器 Credential 文件中。管理员密码使用 Argon2id，登录使用 Secure、
+HttpOnly Cookie 和 CSRF 校验。API 永远不会返回已保存凭据。
+
+## 本地开发
+
+需要 Python 3.11+、Node.js 22+ 和 Google Chrome。
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+$env:APP_MASTER_KEY = python -m server.cli generate-key
+$env:APP_ENV = "development"
+$env:DATABASE_URL = "sqlite:///./data/checkin.db"
+$env:FRONTEND_ORIGIN = "http://localhost:5173"
+python -m server.cli init-db
+python -m server.cli create-admin admin
+```
+
+分别启动 API、Worker 和前端：
+
+```powershell
+python -m uvicorn server.asgi:app --host 127.0.0.1 --port 8000
+python -m server.worker
+cd frontend
+npm install
+npm run dev
+```
+
+原单账号命令行仍可独立使用：
+
+```powershell
 Copy-Item .env.example .env
-```
-
-在 `.env` 中填写自己的账号和密码：
-
-```text
-SWU_USERNAME=你的账号
-SWU_PASSWORD=你的密码
-```
-
-只查询，不提交：
-
-```powershell
 python -m freshman_checkin --status-only
-```
-
-正常执行：
-
-```powershell
 python -m freshman_checkin
 ```
 
-默认模式会启动系统 Chrome 的完整图形引擎并将窗口移到屏幕外，以通过 eHall
-安全验证。找不到 Chrome 时可设置 `CHROME_PATH`。
+## 服务器部署
 
-## 部署
+推荐 Ubuntu、Google Chrome/Chromium 与 1 个现有 Cloudflare Tunnel。12 GB 内存
+足够；Worker 默认始终只执行一个 Chrome 任务。
 
--部署时只使用仓库 Secrets：`SWU_USERNAME` 和 `SWU_PASSWORD`。
-- `--force` 会忽略后端时间标记，默认不会使用；自动化任务也不应默认开启。
+1. 把仓库放到服务器后执行 `sudo bash deploy/install-server.sh`。
+2. 编辑 `/etc/check-new/check-new.env`，至少修改前端域名和 Chrome 路径。
+3. 首次创建管理员（主密钥文件不会显示到命令行）：
 
+```bash
+sudo -u check-new env \
+  APP_ENV=production \
+  APP_MASTER_KEY_FILE=/etc/check-new/app_master_key \
+  DATABASE_URL=sqlite:////var/lib/check-new/checkin.db \
+  FRONTEND_ORIGIN=https://checkin.example.com \
+  /opt/check-new/venv/bin/python -m server.cli create-admin admin
+```
+
+4. 启动并设为开机运行：
+
+```bash
+sudo systemctl enable --now check-new-api.service
+sudo systemctl enable --now check-new-worker.service
+sudo systemctl enable --now check-new-scheduler.timer
+systemctl list-timers check-new-scheduler.timer
+curl http://127.0.0.1:8765/api/health
+```
+
+5. 按 [Cloudflare 部署说明](deploy/cloudflared/README.md)给现有 Tunnel 新增 API
+   hostname，并把 `frontend` 目录连接到 Cloudflare Pages。
+
+### 更新
+
+更新代码后重新运行安装脚本，再重启两个常驻服务：
+
+```bash
+sudo bash deploy/install-server.sh
+sudo systemctl restart check-new-api check-new-worker
+```
+
+### 备份与恢复
+
+先停止 Worker，再用 SQLite 在线备份命令创建一致快照：
+
+```bash
+sudo systemctl stop check-new-worker
+sudo -u check-new sqlite3 /var/lib/check-new/checkin.db \
+  ".backup '/var/lib/check-new/checkin-backup.db'"
+sudo systemctl start check-new-worker
+```
+
+同时离线保存 `/etc/check-new/app_master_key`；没有原主密钥就无法解密备份中的账号。
+恢复时停止 API/Worker，用备份替换数据库后保持所有者为 `check-new:check-new`，再
+启动服务。不要把数据库或主密钥提交到 Git。
 
 ## 测试
 
 ```powershell
-python -m compileall -q freshman_checkin tests
+python -m compileall -q freshman_checkin server tests
 python -m unittest discover -s tests -v
+cd frontend
+npm run build
+npm audit --audit-level=high
 ```
+
+状态查询和提交仍遵循后端下发的 `IN_TIME` 与 `HAS_QD`。默认不使用 `--force`，
+代码使用后端下发的地点配置构造请求，不读取设备 GPS。

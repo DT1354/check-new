@@ -11,6 +11,10 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+data/
+*.db
+*.db-shm
+*.db-wal
 
 # Captures and browser state
 *.har
@@ -20,6 +24,14 @@ cookies.json
 browser-data/
 playwright-report/
 test-results/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # Editors and operating systems
 .idea/
