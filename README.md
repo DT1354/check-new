@@ -72,11 +72,13 @@ python -m freshman_checkin
 
 ## 服务器部署
 
-推荐 Ubuntu、Google Chrome/Chromium 与 1 个现有 Cloudflare Tunnel。12 GB 内存
-足够；Worker 默认始终只执行一个 Chrome 任务。
+推荐 Ubuntu 与 Cloudflare Tunnel。安装脚本会通过 Playwright 下载与服务器架构
+匹配的 Chrome for Testing，无需 Snap；12 GB 内存足够，Worker 默认始终只执行
+一个 Chrome 任务。
 
 1. 把仓库放到服务器后执行 `sudo bash deploy/install-server.sh`。
-2. 编辑 `/etc/check-new/check-new.env`，至少修改前端域名和 Chrome 路径。
+2. 编辑 `/etc/check-new/check-new.env`，至少修改前端域名；浏览器路径已固定为
+   `/opt/check-new/chrome`。
 3. 首次创建管理员（主密钥文件不会显示到命令行）：
 
 ```bash

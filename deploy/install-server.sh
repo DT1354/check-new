@@ -31,10 +31,24 @@ python3 -m venv "${APP_ROOT}/venv"
 "${APP_ROOT}/venv/bin/pip" install --upgrade pip
 "${APP_ROOT}/venv/bin/pip" install -r "${APP_ROOT}/app/requirements.txt"
 
+# Playwright supports Ubuntu ARM64 and downloads a matching Chrome for Testing.
+# Keep it in a fixed shared path so the systemd worker does not depend on Snap.
+install -d -o "${SERVICE_USER}" -g "${SERVICE_USER}" -m 0750 "${APP_ROOT}/browsers"
+PLAYWRIGHT_BROWSERS_PATH="${APP_ROOT}/browsers" \
+  "${APP_ROOT}/venv/bin/python" -m playwright install-deps chromium
+sudo -u "${SERVICE_USER}" env PLAYWRIGHT_BROWSERS_PATH="${APP_ROOT}/browsers" \
+  "${APP_ROOT}/venv/bin/python" -m playwright install chromium
+CHROME_EXECUTABLE="$(find "${APP_ROOT}/browsers" -type f -name chrome -perm -u+x -print -quit)"
+if [[ -z "${CHROME_EXECUTABLE}" ]]; then
+  echo "未在 Playwright 浏览器目录找到 Chrome 可执行文件" >&2
+  exit 1
+fi
+ln -sfn "${CHROME_EXECUTABLE}" "${APP_ROOT}/chrome"
+
 if [[ ! -f /etc/check-new/check-new.env ]]; then
   install -o root -g "${SERVICE_USER}" -m 0640 \
     "${APP_ROOT}/app/deploy/check-new.env.example" /etc/check-new/check-new.env
-  echo "已创建 /etc/check-new/check-new.env，请先修改域名和 CHROME_PATH。"
+  echo "已创建 /etc/check-new/check-new.env，请先修改前端域名。"
 fi
 
 if [[ ! -f /etc/check-new/app_master_key ]]; then
@@ -51,6 +65,6 @@ systemctl daemon-reload
 
 echo
 echo "代码和服务文件已安装。下一步："
-echo "1. 安装 Google Chrome 或 Chromium，并修改 /etc/check-new/check-new.env 的 CHROME_PATH。"
+echo "1. 修改 /etc/check-new/check-new.env 中的前端域名。"
 echo "2. 按 README 创建管理员。"
 echo "3. 启用服务：systemctl enable --now check-new-api check-new-worker check-new-scheduler.timer"
