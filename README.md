@@ -1,7 +1,7 @@
-# 西南大学新生自动打卡
+# swu学工系统自动打卡
 
 使用办事大厅账号、密码和验证码登录 IDM，经 UAAAP/CAS 建立 eHall 会话，
-再查询或提交新生打卡。认证、浏览器安全验证、状态查询和提交逻辑都包含在
+再查询或提交打卡。认证、浏览器安全验证、状态查询和提交逻辑都包含在
 本仓库中，不依赖钉钉登录状态。
 
 > 仅用于本人账号的正常打卡。请遵守学校规定，并自行确认自动化运行是否符合
@@ -20,7 +20,7 @@
 
 ## 本地运行
 
-需要 Python 3.11+ 和 Google Chrome。
+需要 Python 3.11+ 和 Google Chrome。（浏览器）
 
 ```powershell
 python -m venv .venv
@@ -51,17 +51,11 @@ python -m freshman_checkin
 默认模式会启动系统 Chrome 的完整图形引擎并将窗口移到屏幕外，以通过 eHall
 安全验证。找不到 Chrome 时可设置 `CHROME_PATH`。
 
-## 安全边界
+## 部署
 
-- `.env`、HAR、Cookie、日志和浏览器状态均已加入 `.gitignore`。
-- 不要把账号密码写进命令行、源码、测试或 GitHub 工作流。
-- GitHub 部署时只使用仓库 Secrets：`SWU_USERNAME` 和 `SWU_PASSWORD`。
+-部署时只使用仓库 Secrets：`SWU_USERNAME` 和 `SWU_PASSWORD`。
 - `--force` 会忽略后端时间标记，默认不会使用；自动化任务也不应默认开启。
 
-## GitHub Actions
-
-当前仓库只启用了单元测试工作流，没有启用真实定时打卡。生产工作流需要完整
-Chrome 图形引擎和 `xvfb-run`，将在确认执行时间、通知方式及 Secrets 后单独添加。
 
 ## 测试
 
