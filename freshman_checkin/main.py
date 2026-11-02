@@ -1,4 +1,4 @@
-"""新生打卡命令行入口。"""
+"""学工打卡命令行入口。"""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def status_summary(data: dict) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="西南大学新生自动打卡")
+    parser = argparse.ArgumentParser(description="swu学工自动打卡")
     parser.add_argument("--username", "-u")
     parser.add_argument("--password", "-p")
     parser.add_argument("--status-only", action="store_true", help="只查询，不提交")
@@ -114,10 +114,10 @@ def main() -> int:
             if result.already_checked_in:
                 log.info("今日已经打卡")
             elif result.submitted:
-                log.info("新生打卡成功，并已通过二次查询确认")
+                log.info("打卡成功，并已通过二次查询确认")
             return 0
     except Exception as exc:
-        log.error("新生打卡失败: %s", exc)
+        log.error("打卡失败: %s", exc)
         return 1
 
 
