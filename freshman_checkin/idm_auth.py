@@ -1,4 +1,4 @@
-"""登录西南大学 IDM，并建立用于联邦认证的 requests.Session。"""
+"""登录swu IDM，并建立用于联邦认证的 requests.Session。"""
 
 from __future__ import annotations
 
