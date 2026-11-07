@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from freshman_checkin.client import FreshmanCheckinClient, build_checkin_payload
 from freshman_checkin.main import status_summary
@@ -111,6 +111,43 @@ class CheckinFlowTests(unittest.TestCase):
                 "WDZB": 29.456,
             }
         )
+
+
+class BrowserCleanupTests(unittest.TestCase):
+    def _client_with_profile(self, profile: Mock) -> FreshmanCheckinClient:
+        client = FreshmanCheckinClient(Mock(), entry_url="https://example.invalid")
+        client._external_profile = profile
+        return client
+
+    @patch("freshman_checkin.client.time.sleep")
+    def test_profile_cleanup_retries_without_changing_result(self, sleep: Mock):
+        profile = Mock()
+        profile.cleanup.side_effect = [OSError(39, "Directory not empty"), None]
+        client = self._client_with_profile(profile)
+
+        client.close()
+
+        self.assertEqual(profile.cleanup.call_count, 2)
+        sleep.assert_called_once_with(0.2)
+        self.assertIsNone(client._external_profile)
+
+    @patch("freshman_checkin.client.log.warning")
+    @patch("freshman_checkin.client.time.sleep")
+    def test_persistent_cleanup_failure_is_logged_not_raised(
+        self,
+        sleep: Mock,
+        warning: Mock,
+    ):
+        profile = Mock()
+        profile.cleanup.side_effect = OSError(39, "Directory not empty")
+        client = self._client_with_profile(profile)
+
+        client.close()
+
+        self.assertEqual(profile.cleanup.call_count, 5)
+        self.assertEqual(sleep.call_count, 4)
+        warning.assert_called_once()
+        self.assertIsNone(client._external_profile)
 
 
 if __name__ == "__main__":

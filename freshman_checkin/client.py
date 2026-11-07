@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import http.client
+import logging
 import os
 import socket
 import subprocess
@@ -17,6 +18,9 @@ from typing import Any
 import requests
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 from playwright_stealth import Stealth
+
+
+log = logging.getLogger(__name__)
 
 
 BASE_URL = "https://ehallxgdt.swu.edu.cn"
@@ -340,13 +344,34 @@ class FreshmanCheckinClient:
             except subprocess.TimeoutExpired:
                 self._external_process.kill()
         if self._external_profile is not None:
-            self._external_profile.cleanup()
+            self._cleanup_external_profile(self._external_profile)
         self.page = None
         self._context = None
         self._browser = None
         self._playwright = None
         self._external_process = None
         self._external_profile = None
+
+    @staticmethod
+    def _cleanup_external_profile(
+        profile: tempfile.TemporaryDirectory,
+        *,
+        attempts: int = 5,
+        retry_delay_seconds: float = 0.2,
+    ) -> None:
+        """尽力清理 Chrome 配置目录，不让收尾异常覆盖打卡结果。"""
+        for attempt in range(1, attempts + 1):
+            try:
+                profile.cleanup()
+                return
+            except OSError as exc:
+                if attempt == attempts:
+                    log.warning(
+                        "Chrome 临时配置目录清理失败，已忽略，不影响打卡结果: %s",
+                        exc,
+                    )
+                    return
+                time.sleep(retry_delay_seconds * attempt)
 
     def _wait_for_page(self, url_marker: str, label: str) -> None:
         if self.page is None:
